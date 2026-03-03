@@ -8,6 +8,8 @@ export function Settings() {
   const { testConnection } = useOpenClaw();
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "fail" | null>(null);
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   const handleTestConnection = useCallback(async () => {
     if (!config) return;
@@ -17,6 +19,21 @@ export function Settings() {
     setTestResult(ok ? "success" : "fail");
     setTesting(false);
   }, [config, testConnection]);
+
+  const handleShareCode = useCallback(async () => {
+    if (!config) return;
+    setSharing(true);
+    setShareCode(null);
+    try {
+      const r = await fetch(`${config.baseUrl}/new-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Token": config.token },
+      });
+      const data = await r.json() as { code?: string };
+      if (data.code) setShareCode(data.code);
+    } catch { /* ignore */ }
+    setSharing(false);
+  }, [config]);
 
   const handleExportLogs = useCallback(() => {
     const data = JSON.stringify({ config, messages }, null, 2);
@@ -38,16 +55,7 @@ export function Settings() {
           className="w-9 h-9 rounded-full bg-bubble-ai flex items-center justify-center hover:bg-white/10 transition-colors"
           aria-label="Back"
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m15 18-6-6 6-6" />
           </svg>
         </button>
@@ -55,7 +63,6 @@ export function Settings() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {/* Connection section */}
         <Section title="Connection">
           {config && (
             <div className="text-xs text-text-secondary space-y-1 mb-3">
@@ -64,30 +71,32 @@ export function Settings() {
             </div>
           )}
           <SettingsButton onClick={handleTestConnection} disabled={testing}>
-            {testing
-              ? "Testing..."
-              : testResult === "success"
-                ? "Connected!"
-                : testResult === "fail"
-                  ? "Connection Failed"
-                  : "Test Connection"}
+            {testing ? "Testing..." : testResult === "success" ? "Connected ✅" : testResult === "fail" ? "Failed ❌" : "Test Connection"}
           </SettingsButton>
         </Section>
 
-        {/* Data section */}
+        <Section title="Connecter un autre appareil">
+          <p className="text-xs text-text-secondary mb-2">
+            Générez un code pour qu'un proche puisse se connecter à votre Nodi.
+          </p>
+          <SettingsButton onClick={handleShareCode} disabled={sharing}>
+            {sharing ? "Génération..." : "Afficher un code de partage"}
+          </SettingsButton>
+          {shareCode && (
+            <div className="mt-3 bg-bg-primary rounded-xl p-4 text-center">
+              <p className="text-xs text-text-secondary mb-1">Code valable 5 minutes</p>
+              <p className="text-3xl font-mono font-bold tracking-[0.3em] text-green-400">{shareCode}</p>
+              <p className="text-xs text-text-secondary mt-2">À entrer sur app-com-openclaw.vercel.app</p>
+            </div>
+          )}
+        </Section>
+
         <Section title="Data">
-          <SettingsButton onClick={handleExportLogs}>
-            Export Logs (JSON)
-          </SettingsButton>
-          <SettingsButton onClick={clearMessages} variant="warning">
-            Clear Chat History
-          </SettingsButton>
-          <SettingsButton onClick={clearConfig} variant="danger">
-            Disconnect & Re-pair
-          </SettingsButton>
+          <SettingsButton onClick={handleExportLogs}>Export Logs (JSON)</SettingsButton>
+          <SettingsButton onClick={clearMessages} variant="warning">Clear Chat History</SettingsButton>
+          <SettingsButton onClick={clearConfig} variant="danger">Disconnect & Re-pair</SettingsButton>
         </Section>
 
-        {/* About */}
         <Section title="About">
           <div className="text-xs text-text-secondary space-y-1">
             <p>Nod.i v0.1.0</p>
@@ -99,47 +108,22 @@ export function Settings() {
   );
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-bg-secondary rounded-xl p-4">
-      <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">
-        {title}
-      </h2>
+      <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">{title}</h2>
       <div className="space-y-2">{children}</div>
     </div>
   );
 }
 
-function SettingsButton({
-  children,
-  onClick,
-  disabled,
-  variant = "default",
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  variant?: "default" | "warning" | "danger";
+function SettingsButton({ children, onClick, disabled, variant = "default" }: {
+  children: React.ReactNode; onClick: () => void; disabled?: boolean; variant?: "default" | "warning" | "danger";
 }) {
-  const colors = {
-    default: "bg-bubble-ai text-text-primary hover:bg-white/10",
-    warning: "bg-bubble-ai text-status-connecting hover:bg-white/10",
-    danger: "bg-bubble-ai text-status-error hover:bg-white/10",
-  };
-
+  const colors = { default: "bg-bubble-ai text-text-primary hover:bg-white/10", warning: "bg-bubble-ai text-status-connecting hover:bg-white/10", danger: "bg-bubble-ai text-status-error hover:bg-white/10" };
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`w-full ${colors[variant]} py-2.5 rounded-lg text-sm text-left px-3 transition-colors disabled:opacity-40`}
-    >
+    <button type="button" onClick={onClick} disabled={disabled}
+      className={`w-full ${colors[variant]} py-2.5 rounded-lg text-sm text-left px-3 transition-colors disabled:opacity-40`}>
       {children}
     </button>
   );
