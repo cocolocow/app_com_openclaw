@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
+  base: "/app_com_openclaw/",
   plugins: [tailwindcss()],
 
   clearScreen: false,

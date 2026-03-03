@@ -13,7 +13,7 @@ export function Settings() {
     if (!config) return;
     setTesting(true);
     setTestResult(null);
-    const ok = await testConnection(config.baseUrl, config.token);
+    const ok = await testConnection(config.baseUrl);
     setTestResult(ok ? "success" : "fail");
     setTesting(false);
   }, [config, testConnection]);
