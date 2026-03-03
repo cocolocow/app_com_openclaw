@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { useNodStore } from "../store/nodStore";
 
-const BOX_URL = "http://192.168.1.180:8766";
+const BOX_URL = "http://192.168.0.30:8766";
 
 function isTauri(): boolean {
   return "__TAURI_INTERNALS__" in window;
