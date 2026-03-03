@@ -40,7 +40,7 @@ export function Onboarding() {
       if (res.status === "confirmed" && res.token) {
         stopPoll();
         setStep("confirmed");
-        setTimeout(() => setConfig({ token: res.token!, baseUrl: address, mDNS: "nodi" }), 1200);
+        setConfig({ token: res.token!, baseUrl: address, mDNS: "nodi" });
       } else if (res.status === "rejected") { stopPoll(); setStep("rejected"); }
       else if (res.status === "expired")    { stopPoll(); setStep("expired"); }
     }, 2000);
