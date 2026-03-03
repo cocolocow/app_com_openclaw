@@ -5,10 +5,13 @@ import { useOpenClaw } from "../hooks/useOpenClaw";
 const PROVISION_URL = "https://unbnd-server-production.up.railway.app";
 
 type Step = "code" | "waiting" | "confirmed" | "rejected" | "expired";
+type Mode = "cloud" | "local";
 
 export function Onboarding() {
   const [step, setStep]               = useState<Step>("code");
+  const [mode, setMode]               = useState<Mode>("cloud");
   const [pairingCode, setPairingCode] = useState("");
+  const [localIp, setLocalIp]         = useState("");
   const [error, setError]             = useState("");
   const [pendingId, setPendingId]     = useState("");
   const [boxUrl, setBoxUrl]           = useState("");
@@ -58,17 +61,28 @@ export function Onboarding() {
     setPairing(true);
 
     try {
-      // 1. Résout l'URL du Nodi depuis Railway
-      const resolveRes = await fetch(`${PROVISION_URL}/resolve/${code}`);
-      if (!resolveRes.ok) {
-        setError("Code introuvable. Vérifiez le code affiché sur votre Nodi.");
-        setPairing(false);
-        return;
+      let resolvedUrl: string;
+
+      if (mode === "local") {
+        // Mode IP directe — pas de resolve via Railway
+        const ip = localIp.trim();
+        if (!ip) { setError("Entrez l'IP de votre Nodi"); setPairing(false); return; }
+        resolvedUrl = `http://${ip}:8766`;
+      } else {
+        // Mode cloud — résout l'URL du Nodi depuis Railway
+        const resolveRes = await fetch(`${PROVISION_URL}/resolve/${code}`);
+        if (!resolveRes.ok) {
+          setError("Code introuvable. Vérifiez le code affiché sur votre Nodi.");
+          setPairing(false);
+          return;
+        }
+        const { url } = await resolveRes.json() as { url: string };
+        resolvedUrl = url;
       }
-      const { url: resolvedUrl } = await resolveRes.json() as { url: string };
+
       setBoxUrl(resolvedUrl);
 
-      // 2. Envoie le code au Nodi
+      // Envoie le code au Nodi
       const result = await sendPairingCode(code, resolvedUrl);
       setPairing(false);
 
@@ -84,7 +98,7 @@ export function Onboarding() {
       setError("Impossible de joindre le serveur. Vérifiez votre connexion.");
       setPairing(false);
     }
-  }, [pairingCode, sendPairingCode, setConfig]);
+  }, [pairingCode, localIp, mode, sendPairingCode, setConfig]);
 
   const reset = () => {
     stopPoll();
@@ -161,15 +175,33 @@ export function Onboarding() {
           maxLength={6}
           className="w-full bg-bubble-ai text-text-primary placeholder-text-secondary rounded-xl px-4 py-3 text-center text-3xl font-mono tracking-[0.4em] outline-none focus:ring-2 focus:ring-bubble-user/50"
         />
+        {mode === "local" && (
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="IP du Nodi (ex: 192.168.0.30)"
+            value={localIp}
+            onChange={(e) => setLocalIp(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handlePair()}
+            className="w-full bg-bubble-ai text-text-primary placeholder-text-secondary rounded-xl px-4 py-3 text-center text-sm outline-none focus:ring-2 focus:ring-bubble-user/50"
+          />
+        )}
         <button
           type="button"
           onClick={handlePair}
-          disabled={pairing || pairingCode.length < 6}
+          disabled={pairing || pairingCode.length < 6 || (mode === "local" && !localIp.trim())}
           className="w-full bg-bubble-user text-white py-3.5 rounded-xl font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-40"
         >
           {pairing ? "Connexion..." : "Connecter"}
         </button>
         {error && <p className="text-status-error text-xs text-center">{error}</p>}
+        <button
+          type="button"
+          onClick={() => { setMode(mode === "cloud" ? "local" : "cloud"); setError(""); }}
+          className="w-full text-xs text-text-secondary underline"
+        >
+          {mode === "cloud" ? "Connexion par IP locale" : "Connexion via le cloud"}
+        </button>
       </div>
     </div>
   );

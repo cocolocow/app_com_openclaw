@@ -1,11 +1,13 @@
 import { useState, useCallback } from "react";
 import { useNodStore } from "../store/nodStore";
 import { useOpenClaw } from "../hooks/useOpenClaw";
+import { useClawSouls } from "../hooks/useClawSouls";
 
 export function Settings() {
-  const { config, messages, clearConfig, clearMessages, setCurrentScreen } =
+  const { config, messages, activeSoul, clearConfig, clearMessages, setCurrentScreen } =
     useNodStore();
   const { testConnection } = useOpenClaw();
+  const { removeSoul } = useClawSouls();
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "fail" | null>(null);
   const [shareCode, setShareCode] = useState<string | null>(null);
@@ -88,6 +90,25 @@ export function Settings() {
               <p className="text-3xl font-mono font-bold tracking-[0.3em] text-green-400">{shareCode}</p>
               <p className="text-xs text-text-secondary mt-2">À entrer sur app-com-openclaw.vercel.app</p>
             </div>
+          )}
+        </Section>
+
+        <Section title="Soul">
+          {activeSoul ? (
+            <div className="text-xs text-text-secondary space-y-1 mb-3">
+              <p className="text-sm text-text-primary font-medium">{activeSoul.displayName}</p>
+              <p>{activeSoul.owner}/{activeSoul.name} v{activeSoul.version}</p>
+            </div>
+          ) : (
+            <p className="text-xs text-text-secondary mb-3">No soul installed</p>
+          )}
+          <SettingsButton onClick={() => setCurrentScreen("souls")}>
+            {activeSoul ? "Change Soul" : "Browse Souls"}
+          </SettingsButton>
+          {activeSoul && (
+            <SettingsButton onClick={removeSoul} variant="warning">
+              Remove Soul
+            </SettingsButton>
           )}
         </Section>
 

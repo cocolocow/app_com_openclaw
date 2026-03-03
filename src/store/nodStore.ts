@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type Screen = "onboarding" | "chat" | "settings";
+export type Screen = "onboarding" | "chat" | "settings" | "souls";
 
 export type ConnectionStatus =
   | "connected"
@@ -23,12 +23,21 @@ export interface Message {
   timestamp: number;
 }
 
+export interface SoulInfo {
+  owner: string;
+  name: string;
+  displayName: string;
+  description: string;
+  version: string;
+}
+
 interface NodState {
   config: OpenClawConfig | null;
   messages: Message[];
   status: ConnectionStatus;
   isTyping: boolean;
   currentScreen: Screen;
+  activeSoul: SoulInfo | null;
 
   setConfig: (config: OpenClawConfig) => void;
   clearConfig: () => void;
@@ -37,6 +46,7 @@ interface NodState {
   setStatus: (status: ConnectionStatus) => void;
   setIsTyping: (isTyping: boolean) => void;
   setCurrentScreen: (screen: Screen) => void;
+  setActiveSoul: (soul: SoulInfo | null) => void;
 }
 
 export const useNodStore = create<NodState>()(
@@ -47,6 +57,7 @@ export const useNodStore = create<NodState>()(
       status: "disconnected",
       isTyping: false,
       currentScreen: "onboarding",
+      activeSoul: null,
 
       setConfig: (config) =>
         set({ config, currentScreen: "chat", status: "connected" }),
@@ -77,12 +88,15 @@ export const useNodStore = create<NodState>()(
       setIsTyping: (isTyping) => set({ isTyping }),
 
       setCurrentScreen: (screen) => set({ currentScreen: screen }),
+
+      setActiveSoul: (soul) => set({ activeSoul: soul }),
     }),
     {
       name: "nodi-storage",
       partialize: (state) => ({
         config: state.config,
         messages: state.messages,
+        activeSoul: state.activeSoul,
         currentScreen: state.config ? state.currentScreen : "onboarding",
       }),
     },

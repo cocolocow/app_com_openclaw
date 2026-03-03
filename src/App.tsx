@@ -3,6 +3,7 @@ import { useNodStore } from "./store/nodStore";
 import { Onboarding } from "./screens/Onboarding";
 import { Chat } from "./screens/Chat";
 import { Settings } from "./screens/Settings";
+import { Souls } from "./screens/Souls";
 
 export function App() {
   const { currentScreen, config, setCurrentScreen } = useNodStore();
@@ -20,5 +21,7 @@ export function App() {
       return <Chat />;
     case "settings":
       return <Settings />;
+    case "souls":
+      return <Souls />;
   }
 }
