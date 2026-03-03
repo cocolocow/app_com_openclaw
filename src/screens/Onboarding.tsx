@@ -59,7 +59,7 @@ export function Onboarding() {
         setPairing(false);
         return;
       }
-      const { url: resolvedUrl } = await resolveRes.json() as { boxUrl: string };
+      const { url: resolvedUrl } = await resolveRes.json() as { url: string };
       setBoxUrl(resolvedUrl);
 
       // 2. Envoie le code au Nodi
