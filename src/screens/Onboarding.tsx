@@ -33,16 +33,22 @@ export function Onboarding() {
 
   useEffect(() => {
     if (!pendingId || !boxUrl || step !== "waiting") return;
-    stopPoll();
-    pollRef.current = setInterval(async () => {
-      const res = await pollConfirmation(pendingId, boxUrl);
-      if (res.status === "confirmed" && res.token) {
-        stopPoll();
-        setStep("confirmed");
-        setConfig({ token: res.token, baseUrl: boxUrl, mDNS: "nodi" });
-      } else if (res.status === "rejected") { stopPoll(); setStep("rejected"); }
-      else if (res.status === "expired")    { stopPoll(); setStep("expired"); }
-    }, 2000);
+    let cancelled = false;
+    const poll = async () => {
+      while (!cancelled) {
+        const res = await pollConfirmation(pendingId, boxUrl);
+        if (cancelled) break;
+        if (res.status === "confirmed" && res.token) {
+          setConfig({ token: res.token, baseUrl: boxUrl, mDNS: "nodi" });
+          setStep("confirmed");
+          break;
+        } else if (res.status === "rejected") { setStep("rejected"); break; }
+        else if (res.status === "expired")    { setStep("expired"); break; }
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
   }, [pendingId, boxUrl, step]);
 
   const handlePair = useCallback(async () => {
