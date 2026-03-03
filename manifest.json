@@ -1,0 +1,17 @@
+{
+  "name": "Nod.i",
+  "short_name": "Nod.i",
+  "description": "OpenClaw Companion App",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0F0F23",
+  "theme_color": "#0F0F23",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
