@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { useNodStore } from "../store/nodStore";
 
-const BOX_URL = "https://attempts-acquisitions-favorite-reveal.trycloudflare.com";
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS  = 120_000;
 
@@ -10,8 +9,14 @@ function isTauri(): boolean {
   return "__TAURI_INTERNALS__" in window;
 }
 
-async function httpPost(path: string, body: Record<string, unknown>) {
-  const url = `${BOX_URL}${path}`;
+function getBoxUrl(baseUrl: string): string {
+  // Accepte IP locale (192.168.x.x) ou URL complète
+  if (baseUrl.startsWith("http")) return baseUrl;
+  return `http://${baseUrl}:8766`;
+}
+
+async function httpPost(baseUrl: string, path: string, body: Record<string, unknown>) {
+  const url = `${getBoxUrl(baseUrl)}${path}`;
   const opts: RequestInit = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -28,47 +33,46 @@ async function httpPost(path: string, body: Record<string, unknown>) {
 export function useOpenClaw() {
   const { config, addMessage, setStatus, setIsTyping } = useNodStore();
 
+  const testConnection = useCallback(async (baseUrl: string): Promise<boolean> => {
+    try {
+      const url = `${getBoxUrl(baseUrl)}/status`;
+      const r = isTauri()
+        ? await tauriFetch(url)
+        : await globalThis.fetch(url);
+      const data = await r.json() as { online?: boolean };
+      return data.online === true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const sendPairingCode = useCallback(
-    async (code: string): Promise<{
+    async (code: string, baseUrl: string): Promise<{
       success: boolean;
       token?: string;
-      baseUrl?: string;
-      error?: string;
       pending?: boolean;
       pendingId?: string;
-      confirmUrl?: string;
+      error?: string;
     }> => {
       try {
-        // Étape 1 — envoie le code
-        const result = await httpPost("/pair", { code });
+        const result = await httpPost(baseUrl, "/pair", { code });
         if (!result.ok) return { success: false, error: "Appareil inaccessible" };
 
         const data = result.data as {
           success: boolean;
           pending?: boolean;
           pendingId?: string;
-          message?: string;
+          token?: string;
           error?: string;
         };
 
-        if (!data.success) {
-          return { success: false, error: data.error || "Code incorrect" };
-        }
+        if (!data.success) return { success: false, error: data.error || "Code incorrect" };
 
-        // Étape 2 — si confirmation physique requise, poll jusqu'à réponse
         if (data.pending && data.pendingId) {
-          return {
-            success: true,
-            pending: true,
-            pendingId: data.pendingId,
-            confirmUrl: `${BOX_URL.replace("https://", "http://192.168.0.30")}/confirm`,
-          };
+          return { success: true, pending: true, pendingId: data.pendingId };
         }
 
-        // Pairing direct (sans confirmation)
-        const d = result.data as { token?: string };
-        return { success: true, token: d.token, baseUrl: BOX_URL };
-
+        return { success: true, token: data.token };
       } catch (err) {
         return { success: false, error: err instanceof Error ? err.message : "Connexion impossible" };
       }
@@ -77,33 +81,23 @@ export function useOpenClaw() {
   );
 
   const pollConfirmation = useCallback(
-    async (pendingId: string): Promise<{
+    async (pendingId: string, baseUrl: string): Promise<{
       status: "confirmed" | "waiting" | "rejected" | "expired" | "error";
       token?: string;
     }> => {
       const started = Date.now();
-
       while (Date.now() - started < POLL_TIMEOUT_MS) {
         try {
-          const result = await httpPost("/poll", { pendingId });
-          const data = result.data as {
-            status: string;
-            token?: string;
-          };
-
-          if (data.status === "confirmed" && data.token) {
-            return { status: "confirmed", token: data.token };
-          }
+          const result = await httpPost(baseUrl, "/poll", { pendingId });
+          const data = result.data as { status: string; token?: string };
+          if (data.status === "confirmed" && data.token) return { status: "confirmed", token: data.token };
           if (data.status === "rejected") return { status: "rejected" };
           if (data.status === "expired")  return { status: "expired" };
-
         } catch {
           return { status: "error" };
         }
-
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       }
-
       return { status: "expired" };
     },
     []
@@ -112,31 +106,25 @@ export function useOpenClaw() {
   const sendMessage = useCallback(
     async (text: string) => {
       if (!config) return;
-
       addMessage({ text, sender: "user" });
       setIsTyping(true);
       setStatus("connecting");
-
       try {
-        const result = await httpPost("/message", {
+        const result = await httpPost(config.baseUrl, "/message", {
           token: config.token,
           message: text,
         });
-
         setStatus("connected");
         setIsTyping(false);
-
         const data = result.data as { success: boolean; reply?: unknown };
-
         if (result.ok && data.success) {
           const reply = data.reply;
-          const text =
-            typeof reply === "string"
-              ? reply
-              : (reply as { message?: string; response?: string })?.message ||
-                (reply as { message?: string; response?: string })?.response ||
-                JSON.stringify(reply);
-          addMessage({ text, sender: "ai" });
+          const replyText =
+            typeof reply === "string" ? reply
+            : (reply as { message?: string })?.message
+            || (reply as { response?: string })?.response
+            || JSON.stringify(reply);
+          addMessage({ text: replyText, sender: "ai" });
         } else {
           addMessage({ text: "Impossible d'obtenir une réponse. Réessayez.", sender: "ai" });
           setStatus("error");
@@ -144,14 +132,11 @@ export function useOpenClaw() {
       } catch (err) {
         setIsTyping(false);
         setStatus("error");
-        addMessage({
-          text: `Erreur: ${err instanceof Error ? err.message : "Inconnue"}`,
-          sender: "ai",
-        });
+        addMessage({ text: `Erreur: ${err instanceof Error ? err.message : "Inconnue"}`, sender: "ai" });
       }
     },
     [config, addMessage, setIsTyping, setStatus]
   );
 
-  return { sendPairingCode, pollConfirmation, sendMessage };
+  return { testConnection, sendPairingCode, pollConfirmation, sendMessage };
 }
