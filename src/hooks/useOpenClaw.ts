@@ -2,9 +2,7 @@ import { useCallback } from "react";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { useNodStore } from "../store/nodStore";
 
-const BOX_URL = "http://192.168.0.28";
-const SETUP_TOKEN = "nodi-setup";
-
+const BOX_URL = "http://192.168.1.180:8766";
 function isTauri(): boolean {
   return "__TAURI_INTERNALS__" in window;
 }
@@ -27,16 +25,6 @@ async function httpPost(path: string, body: Record<string, unknown>) {
   return { ok: response.ok, data: await response.text() };
 }
 
-function parseTokenFromResponse(text: string): { token?: string; mDNS?: string } {
-  // Parse "✅ Paired ! Token: xxx mDNS: yyy" or similar
-  const tokenMatch = text.match(/Token:\s*(\S+)/i);
-  const mdnsMatch = text.match(/mDNS:\s*(\S+)/i);
-  return {
-    token: tokenMatch?.[1],
-    mDNS: mdnsMatch?.[1],
-  };
-}
-
 export function useOpenClaw() {
   const { config, addMessage, setStatus, setIsTyping } = useNodStore();
 
@@ -46,36 +34,22 @@ export function useOpenClaw() {
     ): Promise<{
       success: boolean;
       token?: string;
-      mDNS?: string;
       baseUrl?: string;
       error?: string;
     }> => {
       try {
-        const result = await httpPost("/hooks/agent", {
-          message: `PAIRING ${code}`,
-          name: "nod-setup",
-          agentId: "main",
-          token: SETUP_TOKEN,
-        });
+        const result = await httpPost("/pair", { code });
 
         if (!result.ok) {
-          return { success: false, error: "Device unreachable" };
+          return { success: false, error: "Invalid code or device unreachable" };
         }
 
-        const parsed = parseTokenFromResponse(result.data);
-        if (parsed.token) {
-          return {
-            success: true,
-            token: parsed.token,
-            mDNS: parsed.mDNS,
-            baseUrl: BOX_URL,
-          };
+        try {
+          const parsed = JSON.parse(result.data);
+          return { success: true, token: parsed.token, baseUrl: BOX_URL };
+        } catch {
+          return { success: true, token: result.data, baseUrl: BOX_URL };
         }
-
-        return {
-          success: false,
-          error: result.data || "Invalid code",
-        };
       } catch (err) {
         return {
           success: false,
@@ -107,9 +81,9 @@ export function useOpenClaw() {
       setStatus("connecting");
 
       try {
-        const result = await httpPost("/hooks/agent", {
+        const result = await httpPost("/message", {
           token: config.token,
-          text,
+          message: text,
         });
 
         setStatus("connected");

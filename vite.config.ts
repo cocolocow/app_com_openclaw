@@ -23,8 +23,12 @@ export default defineConfig({
       ignored: ["**/src-tauri/**"],
     },
     proxy: {
-      "/hooks": {
-        target: "http://192.168.0.28",
+      "/pair": {
+        target: "http://192.168.1.180:8766",
+        changeOrigin: true,
+      },
+      "/message": {
+        target: "http://192.168.1.180:8766",
         changeOrigin: true,
       },
     },

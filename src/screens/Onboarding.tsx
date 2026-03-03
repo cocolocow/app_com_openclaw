@@ -21,8 +21,8 @@ export function Onboarding() {
     if (result.success && result.token) {
       setConfig({
         token: result.token,
-        mDNS: result.mDNS || "openclaw",
-        baseUrl: result.baseUrl || "http://192.168.0.28",
+        mDNS: "openclaw",
+        baseUrl: result.baseUrl || "http://192.168.1.180:8766",
       });
     } else {
       setError(result.error || "Pairing failed. Check your code and try again.");
