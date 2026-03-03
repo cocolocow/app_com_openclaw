@@ -5,8 +5,9 @@ import { useOpenClaw } from "../hooks/useOpenClaw";
 type Step = "address" | "code" | "waiting" | "confirmed" | "rejected" | "expired";
 
 export function Onboarding() {
-  const [step, setStep]               = useState<Step>("address");
-  const [address, setAddress]         = useState("");
+  const isHostedOnNodi = !window.location.hostname.includes("github.io");
+  const [step, setStep]               = useState<Step>(isHostedOnNodi ? "code" : "address");
+  const [address, setAddress]         = useState(isHostedOnNodi ? window.location.origin : "");
   const [addressError, setAddressError] = useState("");
   const [pairingCode, setPairingCode] = useState("");
   const [error, setError]             = useState("");
