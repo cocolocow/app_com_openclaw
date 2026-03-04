@@ -4,6 +4,7 @@ import { useNodStore } from "../store/nodStore";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS  = 120_000;
+const PROVISION_URL    = "https://unbnd-server-production.up.railway.app";
 
 function isTauri(): boolean {
   return "__TAURI_INTERNALS__" in window;
@@ -30,8 +31,21 @@ async function httpPost(baseUrl: string, path: string, body: Record<string, unkn
   return { ok: r.ok, data: await r.json() };
 }
 
+async function tryReconnect(boxId: string, reconnectToken: string): Promise<string | null> {
+  try {
+    const url = `${PROVISION_URL}/reconnect/${boxId}`;
+    const opts: RequestInit = { headers: { "X-Reconnect-Token": reconnectToken } };
+    const r = isTauri() ? await tauriFetch(url, opts) : await globalThis.fetch(url, opts);
+    if (!r.ok) return null;
+    const data = (await r.json()) as { url?: string };
+    return data.url || null;
+  } catch {
+    return null;
+  }
+}
+
 export function useOpenClaw() {
-  const { config, addMessage, setStatus, setIsTyping } = useNodStore();
+  const { config, setConfig, addMessage, setStatus, setIsTyping } = useNodStore();
 
   const testConnection = useCallback(async (baseUrl: string): Promise<boolean> => {
     try {
@@ -84,13 +98,15 @@ export function useOpenClaw() {
     async (pendingId: string, baseUrl: string): Promise<{
       status: "confirmed" | "waiting" | "rejected" | "expired" | "error";
       token?: string;
+      boxId?: string;
+      reconnectToken?: string;
     }> => {
       const started = Date.now();
       while (Date.now() - started < POLL_TIMEOUT_MS) {
         try {
           const result = await httpPost(baseUrl, "/poll", { pendingId });
-          const data = result.data as { status: string; token?: string };
-          if (data.status === "confirmed" && data.token) return { status: "confirmed", token: data.token };
+          const data = result.data as { status: string; token?: string; boxId?: string; reconnectToken?: string };
+          if (data.status === "confirmed" && data.token) return { status: "confirmed", token: data.token, boxId: data.boxId, reconnectToken: data.reconnectToken };
           if (data.status === "rejected") return { status: "rejected" };
           if (data.status === "expired")  return { status: "expired" };
         } catch {
@@ -109,11 +125,26 @@ export function useOpenClaw() {
       addMessage({ text, sender: "user" });
       setIsTyping(true);
       setStatus("connecting");
-      try {
-        const result = await httpPost(config.baseUrl, "/message", {
+
+      const attempt = async (baseUrl: string) => {
+        return httpPost(baseUrl, "/message", {
           token: config.token,
           message: text,
         });
+      };
+
+      try {
+        let result = await attempt(config.baseUrl);
+
+        // Auto-reconnect : si la requête échoue et qu'on a un reconnectToken
+        if (!result.ok && config.boxId && config.reconnectToken) {
+          const newUrl = await tryReconnect(config.boxId, config.reconnectToken);
+          if (newUrl && newUrl !== config.baseUrl) {
+            setConfig({ ...config, baseUrl: newUrl });
+            result = await attempt(newUrl);
+          }
+        }
+
         setStatus("connected");
         setIsTyping(false);
         const data = result.data as { success: boolean; reply?: unknown };
@@ -130,12 +161,35 @@ export function useOpenClaw() {
           setStatus("error");
         }
       } catch (err) {
+        // Tentative de reconnexion sur erreur réseau
+        if (config.boxId && config.reconnectToken) {
+          try {
+            const newUrl = await tryReconnect(config.boxId, config.reconnectToken);
+            if (newUrl && newUrl !== config.baseUrl) {
+              setConfig({ ...config, baseUrl: newUrl });
+              const result = await attempt(newUrl);
+              setStatus("connected");
+              setIsTyping(false);
+              const data = result.data as { success: boolean; reply?: unknown };
+              if (result.ok && data.success) {
+                const reply = data.reply;
+                const replyText =
+                  typeof reply === "string" ? reply
+                  : (reply as { message?: string })?.message
+                  || (reply as { response?: string })?.response
+                  || JSON.stringify(reply);
+                addMessage({ text: replyText, sender: "ai" });
+                return;
+              }
+            }
+          } catch { /* fallthrough */ }
+        }
         setIsTyping(false);
         setStatus("error");
         addMessage({ text: `Erreur: ${err instanceof Error ? err.message : "Inconnue"}`, sender: "ai" });
       }
     },
-    [config, addMessage, setIsTyping, setStatus]
+    [config, setConfig, addMessage, setIsTyping, setStatus]
   );
 
   return { testConnection, sendPairingCode, pollConfirmation, sendMessage };

@@ -13,6 +13,8 @@ export interface OpenClawConfig {
   token: string;
   mDNS: string;
   baseUrl: string;
+  boxId?: string;
+  reconnectToken?: string;
   ip?: string;
 }
 

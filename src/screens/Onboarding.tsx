@@ -42,7 +42,13 @@ export function Onboarding() {
         const res = await pollConfirmation(pendingId, boxUrl);
         if (cancelled) break;
         if (res.status === "confirmed" && res.token) {
-          setConfig({ token: res.token, baseUrl: boxUrl, mDNS: "nodi" });
+          setConfig({
+            token: res.token,
+            baseUrl: boxUrl,
+            mDNS: "nodi",
+            boxId: res.boxId,
+            reconnectToken: res.reconnectToken,
+          });
           setStep("confirmed");
           break;
         } else if (res.status === "rejected") { setStep("rejected"); break; }
