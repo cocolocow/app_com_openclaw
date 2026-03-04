@@ -189,7 +189,7 @@ export function Onboarding() {
             value={localIp}
             onChange={(e) => setLocalIp(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handlePair()}
-            className="w-full bg-bubble-ai text-text-primary placeholder-text-secondary rounded-xl px-4 py-3 text-center text-sm outline-none focus:ring-2 focus:ring-bubble-user/50"
+            className="w-full bg-bubble-ai text-text-primary placeholder-text-secondary rounded-xl px-4 py-3 text-center text-base outline-none focus:ring-2 focus:ring-bubble-user/50"
           />
         )}
         <button

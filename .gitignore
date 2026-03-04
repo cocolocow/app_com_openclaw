@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-# Tauri
-src-tauri/target
-src-tauri/gen
+# Capacitor native
+ios/App/Pods/
+android/.gradle/
+android/app/build/

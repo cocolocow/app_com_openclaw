@@ -5,10 +5,10 @@ import { ChatBubble } from "../components/ChatBubble";
 import { ChatInput } from "../components/ChatInput";
 import { TypingIndicator } from "../components/TypingIndicator";
 import { StatusIndicator } from "../components/StatusIndicator";
+import { isNative } from "../App";
 
 export function Chat() {
-  const { messages, status, isTyping, config, activeSoul, setCurrentScreen } =
-    useNodStore();
+  const { messages, status, isTyping, config, activeSoul, setCurrentScreen } = useNodStore();
   const { sendMessage } = useOpenClaw();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -21,9 +21,9 @@ export function Chat() {
     : "";
 
   return (
-    <div className="h-dvh flex flex-col bg-bg-primary">
+    <div className={`${isNative ? "h-full" : "h-dvh"} flex flex-col bg-bg-primary`}>
       {/* Header */}
-      <header className="bg-bg-secondary border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
+      <header className="bg-bg-secondary border-b border-border px-4 py-3 safe-top flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-base font-semibold">
             Nod.i {deviceId}
@@ -31,42 +31,38 @@ export function Chat() {
           <StatusIndicator status={status} />
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setCurrentScreen("souls")}
-            className={`h-8 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium transition-colors ${
-              activeSoul
-                ? "bg-bubble-user/15 text-bubble-user"
-                : "bg-bubble-ai text-text-secondary hover:text-text-primary"
-            }`}
-            aria-label="Souls"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a4 4 0 0 0-4 4c0 2 1.5 3.5 4 6 2.5-2.5 4-4 4-6a4 4 0 0 0-4-4Z" />
-              <path d="M12 12c-3 2.5-6 4-6 7a6 6 0 0 0 12 0c0-3-3-4.5-6-7Z" />
-            </svg>
-            {activeSoul ? activeSoul.displayName : "Soul"}
-          </button>
-        <button
-          type="button"
-          onClick={() => setCurrentScreen("settings")}
-          className="w-9 h-9 rounded-full bg-bubble-ai flex items-center justify-center hover:bg-white/10 transition-colors"
-          aria-label="Settings"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
+          {activeSoul && (
+            <div className="h-8 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium bg-bubble-user/15 text-bubble-user">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a4 4 0 0 0-4 4c0 2 1.5 3.5 4 6 2.5-2.5 4-4 4-6a4 4 0 0 0-4-4Z" />
+                <path d="M12 12c-3 2.5-6 4-6 7a6 6 0 0 0 12 0c0-3-3-4.5-6-7Z" />
+              </svg>
+              {activeSoul.displayName}
+            </div>
+          )}
+          {!isNative && (
+            <>
+              <button
+                type="button"
+                onClick={() => setCurrentScreen("souls")}
+                className="h-8 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium bg-bubble-ai text-text-secondary hover:text-text-primary transition-colors"
+                aria-label="Souls"
+              >
+                Souls
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentScreen("settings")}
+                className="w-9 h-9 rounded-full bg-bubble-ai flex items-center justify-center hover:bg-white/10 transition-colors"
+                aria-label="Settings"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
       </header>
 

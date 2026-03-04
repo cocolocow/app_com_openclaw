@@ -6,6 +6,7 @@ import {
   type SoulBundle,
   type SoulCategory,
 } from "../hooks/useClawSouls";
+import { isNative } from "../App";
 
 const CATEGORY_EMOJI: Record<string, string> = {
   lifestyle: "🌿",
@@ -120,8 +121,8 @@ export function Souls() {
     const soulMd = selectedSoul.files?.["SOUL.md"] ?? "";
     const { manifest } = selectedSoul;
     return (
-      <div className="h-dvh flex flex-col bg-bg-primary">
-        <header className="bg-bg-secondary border-b border-border px-4 py-3 flex items-center gap-3 shrink-0">
+      <div className={`${isNative ? "h-full" : "h-dvh"} flex flex-col bg-bg-primary`}>
+        <header className="bg-bg-secondary border-b border-border px-4 py-3 safe-top flex items-center gap-3 shrink-0">
           <button
             type="button"
             onClick={() => setSelectedSoul(null)}
@@ -170,7 +171,7 @@ export function Souls() {
           </div>
         </div>
 
-        <div className="sticky bottom-0 bg-bg-secondary border-t border-border p-3">
+        <div className="sticky bottom-0 bg-bg-secondary border-t border-border p-3 safe-bottom">
           {isActive(selectedSoul) ? (
             <button
               type="button"
@@ -196,16 +197,18 @@ export function Souls() {
 
   // List view
   return (
-    <div className="h-dvh flex flex-col bg-bg-primary">
-      <header className="bg-bg-secondary border-b border-border px-4 py-3 flex items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onClick={() => setCurrentScreen("chat")}
-          className="w-9 h-9 rounded-full bg-bubble-ai flex items-center justify-center hover:bg-white/10 transition-colors"
-          aria-label="Back"
-        >
-          <ChevronLeft />
-        </button>
+    <div className={`${isNative ? "h-full" : "h-dvh"} flex flex-col bg-bg-primary`}>
+      <header className="bg-bg-secondary border-b border-border px-4 py-3 safe-top flex items-center gap-3 shrink-0">
+        {!isNative && (
+          <button
+            type="button"
+            onClick={() => setCurrentScreen("chat")}
+            className="w-9 h-9 rounded-full bg-bubble-ai flex items-center justify-center hover:bg-white/10 transition-colors"
+            aria-label="Back"
+          >
+            <ChevronLeft />
+          </button>
+        )}
         <h1 className="text-base font-semibold">Souls</h1>
       </header>
 
@@ -233,7 +236,7 @@ export function Souls() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search souls..."
-          className="w-full bg-bubble-ai text-text-primary placeholder-text-secondary rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-bubble-user/50"
+          className="w-full bg-bubble-ai text-text-primary placeholder-text-secondary rounded-full px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-bubble-user/50"
         />
       </div>
 

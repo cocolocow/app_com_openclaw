@@ -72,7 +72,10 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         onKeyDown={handleKeyDown}
         placeholder="Type a message..."
         disabled={disabled}
-        className="flex-1 bg-bubble-ai text-text-primary placeholder-text-secondary rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-bubble-user/50 disabled:opacity-50"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        className="flex-1 bg-bubble-ai text-text-primary placeholder-text-secondary rounded-full px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-bubble-user/50 disabled:opacity-50"
       />
 
       <button

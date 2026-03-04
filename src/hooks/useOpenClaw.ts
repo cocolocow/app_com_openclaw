@@ -1,41 +1,29 @@
 import { useCallback } from "react";
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
-import { useNodStore } from "../store/nodStore";
+import { useNodStore, type SoulInfo } from "../store/nodStore";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS  = 120_000;
 const PROVISION_URL    = "https://unbnd-server-production.up.railway.app";
 
-function isTauri(): boolean {
-  return "__TAURI_INTERNALS__" in window;
-}
-
 function getBoxUrl(baseUrl: string): string {
-  // Accepte IP locale (192.168.x.x) ou URL complète
   if (baseUrl.startsWith("http")) return baseUrl;
   return `http://${baseUrl}:8766`;
 }
 
 async function httpPost(baseUrl: string, path: string, body: Record<string, unknown>) {
   const url = `${getBoxUrl(baseUrl)}${path}`;
-  const opts: RequestInit = {
+  const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  };
-  if (isTauri()) {
-    const r = await tauriFetch(url, opts);
-    return { ok: r.ok, data: await r.json() };
-  }
-  const r = await globalThis.fetch(url, opts);
+  });
   return { ok: r.ok, data: await r.json() };
 }
 
 async function tryReconnect(boxId: string, reconnectToken: string): Promise<string | null> {
   try {
     const url = `${PROVISION_URL}/reconnect/${boxId}`;
-    const opts: RequestInit = { headers: { "X-Reconnect-Token": reconnectToken } };
-    const r = isTauri() ? await tauriFetch(url, opts) : await globalThis.fetch(url, opts);
+    const r = await fetch(url, { headers: { "X-Reconnect-Token": reconnectToken } });
     if (!r.ok) return null;
     const data = (await r.json()) as { url?: string };
     return data.url || null;
@@ -44,15 +32,25 @@ async function tryReconnect(boxId: string, reconnectToken: string): Promise<stri
   }
 }
 
+async function fetchSoulFromNodi(baseUrl: string, token: string): Promise<SoulInfo | null> {
+  try {
+    const url = `${getBoxUrl(baseUrl)}/soul`;
+    const r = await fetch(url, { headers: { "X-Session-Token": token } });
+    if (!r.ok) return null;
+    const data = (await r.json()) as { soul?: SoulInfo | null };
+    return data.soul || null;
+  } catch {
+    return null;
+  }
+}
+
 export function useOpenClaw() {
-  const { config, setConfig, addMessage, setStatus, setIsTyping } = useNodStore();
+  const { config, setConfig, addMessage, setStatus, setIsTyping, setActiveSoul } = useNodStore();
 
   const testConnection = useCallback(async (baseUrl: string): Promise<boolean> => {
     try {
       const url = `${getBoxUrl(baseUrl)}/status`;
-      const r = isTauri()
-        ? await tauriFetch(url)
-        : await globalThis.fetch(url);
+      const r = await fetch(url);
       const data = await r.json() as { online?: boolean };
       return data.online === true;
     } catch {
@@ -192,5 +190,11 @@ export function useOpenClaw() {
     [config, setConfig, addMessage, setIsTyping, setStatus]
   );
 
-  return { testConnection, sendPairingCode, pollConfirmation, sendMessage };
+  const syncSoul = useCallback(async () => {
+    if (!config) return;
+    const soul = await fetchSoulFromNodi(config.baseUrl, config.token);
+    setActiveSoul(soul);
+  }, [config, setActiveSoul]);
+
+  return { testConnection, sendPairingCode, pollConfirmation, sendMessage, syncSoul };
 }

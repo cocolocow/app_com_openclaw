@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useNodStore } from "../store/nodStore";
 import { useOpenClaw } from "../hooks/useOpenClaw";
 import { useClawSouls } from "../hooks/useClawSouls";
+import { isNative } from "../App";
 
 export function Settings() {
   const { config, messages, activeSoul, clearConfig, clearMessages, setCurrentScreen } =
@@ -49,18 +50,20 @@ export function Settings() {
   }, [config, messages]);
 
   return (
-    <div className="h-dvh flex flex-col bg-bg-primary">
-      <header className="bg-bg-secondary border-b border-border px-4 py-3 flex items-center gap-3 shrink-0">
-        <button
-          type="button"
-          onClick={() => setCurrentScreen("chat")}
-          className="w-9 h-9 rounded-full bg-bubble-ai flex items-center justify-center hover:bg-white/10 transition-colors"
-          aria-label="Back"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-        </button>
+    <div className={`${isNative ? "h-full" : "h-dvh"} flex flex-col bg-bg-primary`}>
+      <header className="bg-bg-secondary border-b border-border px-4 py-3 safe-top flex items-center gap-3 shrink-0">
+        {!isNative && (
+          <button
+            type="button"
+            onClick={() => setCurrentScreen("chat")}
+            className="w-9 h-9 rounded-full bg-bubble-ai flex items-center justify-center hover:bg-white/10 transition-colors"
+            aria-label="Back"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
+        )}
         <h1 className="text-base font-semibold">Settings</h1>
       </header>
 

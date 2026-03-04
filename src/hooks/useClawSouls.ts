@@ -1,22 +1,15 @@
 import { useCallback, useState } from "react";
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { Capacitor } from "@capacitor/core";
 import { useNodStore } from "../store/nodStore";
 
 const CLAWSOULS_API = "https://clawsouls.ai/api/v1";
 const PROXY_PREFIX = "/clawsouls-api";
 
-function isTauri(): boolean {
-  return "__TAURI_INTERNALS__" in window;
-}
-
 async function apiGet<T>(path: string): Promise<T> {
-  // In Tauri, tauriFetch bypasses CORS. In browser dev, use Vite proxy.
-  if (isTauri()) {
-    const r = await tauriFetch(`${CLAWSOULS_API}${path}`);
-    if (!r.ok) throw new Error(`API ${r.status}`);
-    return r.json() as Promise<T>;
-  }
-  const r = await globalThis.fetch(`${PROXY_PREFIX}${path}`);
+  // In Capacitor native, fetch goes direct (no CORS in WebView).
+  // In browser dev, use Vite proxy.
+  const base = Capacitor.isNativePlatform() ? CLAWSOULS_API : PROXY_PREFIX;
+  const r = await fetch(`${base}${path}`);
   if (!r.ok) throw new Error(`API ${r.status}`);
   return r.json() as Promise<T>;
 }
@@ -27,14 +20,11 @@ async function httpPost(
   body: Record<string, unknown>,
 ) {
   const url = `${baseUrl}${path}`;
-  const opts: RequestInit = {
+  const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  };
-  const r = isTauri()
-    ? await tauriFetch(url, opts)
-    : await globalThis.fetch(url, opts);
+  });
   return { ok: r.ok, data: (await r.json()) as Record<string, unknown> };
 }
 
