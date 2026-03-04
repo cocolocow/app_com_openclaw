@@ -10,14 +10,21 @@ function getBoxUrl(baseUrl: string): string {
   return `http://${baseUrl}:8766`;
 }
 
-async function httpPost(baseUrl: string, path: string, body: Record<string, unknown>) {
+async function httpPost(baseUrl: string, path: string, body: Record<string, unknown>, timeoutMs = 120_000) {
   const url = `${getBoxUrl(baseUrl)}${path}`;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return { ok: r.ok, data: await r.json() };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    return { ok: r.ok, data: await r.json() };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function tryReconnect(boxId: string, reconnectToken: string): Promise<string | null> {
@@ -45,7 +52,7 @@ async function fetchSoulFromNodi(baseUrl: string, token: string): Promise<SoulIn
 }
 
 export function useOpenClaw() {
-  const { config, setConfig, addMessage, setStatus, setIsTyping, setActiveSoul } = useNodStore();
+  const { config, setConfig, addMessage, setStatus, setIsTyping, setActiveSoul, addToolMessage, setToolTyping } = useNodStore();
 
   const testConnection = useCallback(async (baseUrl: string): Promise<boolean> => {
     try {
@@ -97,14 +104,15 @@ export function useOpenClaw() {
       status: "confirmed" | "waiting" | "rejected" | "expired" | "error";
       token?: string;
       boxId?: string;
+      boxUrl?: string;
       reconnectToken?: string;
     }> => {
       const started = Date.now();
       while (Date.now() - started < POLL_TIMEOUT_MS) {
         try {
           const result = await httpPost(baseUrl, "/poll", { pendingId });
-          const data = result.data as { status: string; token?: string; boxId?: string; reconnectToken?: string };
-          if (data.status === "confirmed" && data.token) return { status: "confirmed", token: data.token, boxId: data.boxId, reconnectToken: data.reconnectToken };
+          const data = result.data as { status: string; token?: string; boxId?: string; boxUrl?: string; reconnectToken?: string };
+          if (data.status === "confirmed" && data.token) return { status: "confirmed", token: data.token, boxId: data.boxId, boxUrl: data.boxUrl, reconnectToken: data.reconnectToken };
           if (data.status === "rejected") return { status: "rejected" };
           if (data.status === "expired")  return { status: "expired" };
         } catch {
@@ -196,5 +204,70 @@ export function useOpenClaw() {
     setActiveSoul(soul);
   }, [config, setActiveSoul]);
 
-  return { testConnection, sendPairingCode, pollConfirmation, sendMessage, syncSoul };
+  const sendToolMessage = useCallback(
+    async (
+      text: string,
+      sessionKey: string,
+      toolId: string,
+      toolConfig?: {
+        systemPrompt?: string;
+        caps?: string[];
+        commands?: string[];
+        permissions?: Record<string, boolean>;
+      },
+    ) => {
+      if (!config) return;
+      addToolMessage(toolId, { text, sender: "user" });
+      setToolTyping(true);
+      setStatus("connecting");
+
+      // Send system prompt on first user message (only greeting AI message exists)
+      const existingMessages = useNodStore.getState().toolMessages[toolId] ?? [];
+      const userMessages = existingMessages.filter((m) => m.sender === "user");
+      const isFirstMessage = userMessages.length <= 1;
+
+      const counter = useNodStore.getState().toolSessionCounter[toolId] ?? 0;
+      const effectiveSessionKey = counter > 0 ? `${sessionKey}-${counter}` : sessionKey;
+
+      const body: Record<string, unknown> = {
+        token: config.token,
+        message: text,
+        sessionKey: effectiveSessionKey,
+      };
+      if (isFirstMessage && toolConfig?.systemPrompt) {
+        const siteBaseUrl = (config.boxUrl || getBoxUrl(config.baseUrl)).replace(/\/$/, "");
+        body.systemPrompt = toolConfig.systemPrompt.replace(/\{\{BOX_URL\}\}/g, siteBaseUrl);
+      }
+      if (toolConfig?.caps) body.caps = toolConfig.caps;
+      if (toolConfig?.commands) body.commands = toolConfig.commands;
+      if (toolConfig?.permissions) body.permissions = toolConfig.permissions;
+
+      try {
+        const result = await httpPost(config.baseUrl, "/message", body, 360_000);
+
+        setStatus("connected");
+        setToolTyping(false);
+        const data = result.data as { success: boolean; reply?: unknown };
+        if (result.ok && data.success) {
+          const reply = data.reply;
+          const replyText =
+            typeof reply === "string" ? reply
+            : (reply as { message?: string })?.message
+            || (reply as { response?: string })?.response
+            || JSON.stringify(reply);
+          addToolMessage(toolId, { text: replyText, sender: "ai" });
+        } else {
+          addToolMessage(toolId, { text: "Impossible d'obtenir une reponse. Reessayez.", sender: "ai" });
+          setStatus("error");
+        }
+      } catch (err) {
+        setToolTyping(false);
+        setStatus("error");
+        addToolMessage(toolId, { text: `Erreur: ${err instanceof Error ? err.message : "Inconnue"}`, sender: "ai" });
+      }
+    },
+    [config, addToolMessage, setToolTyping, setStatus],
+  );
+
+  return { testConnection, sendPairingCode, pollConfirmation, sendMessage, sendToolMessage, syncSoul };
 }

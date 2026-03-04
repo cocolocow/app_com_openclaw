@@ -6,6 +6,8 @@ import { Onboarding } from "./screens/Onboarding";
 import { Chat } from "./screens/Chat";
 import { Settings } from "./screens/Settings";
 import { Souls } from "./screens/Souls";
+import { Tools } from "./screens/Tools";
+import { ToolChat } from "./screens/ToolChat";
 import { TabBar } from "./components/TabBar";
 
 export const isNative = Capacitor.isNativePlatform();
@@ -34,6 +36,8 @@ export function App() {
       case "chat": return <Chat />;
       case "settings": return <Settings />;
       case "souls": return <Souls />;
+      case "tools": return <Tools />;
+      case "toolChat": return <ToolChat />;
     }
   })();
 

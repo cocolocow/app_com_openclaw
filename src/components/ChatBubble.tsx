@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { Message } from "../store/nodStore";
 
 function formatTime(timestamp: number): string {
@@ -10,9 +10,62 @@ function formatTime(timestamp: number): string {
 
 const ttsSupported = typeof window !== "undefined" && "speechSynthesis" in window;
 
+/** Lightweight markdown-to-HTML for chat bubbles. */
+function renderMarkdown(text: string): string {
+  let html = text
+    // Escape HTML
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Code blocks: ```...```
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) =>
+    `<pre class="bg-black/30 rounded-lg px-3 py-2 my-1 overflow-x-auto text-xs"><code>${code.trim()}</code></pre>`
+  );
+
+  // Inline code: `...`
+  html = html.replace(/`([^`]+)`/g, '<code class="bg-black/30 px-1.5 py-0.5 rounded text-xs">$1</code>');
+
+  // Bold: **...**
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  // Italic: *...*
+  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+
+  // Links: [text](url)
+  html = html.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener" class="underline text-blue-400 hover:text-blue-300">$1</a>'
+  );
+
+  // Bare URLs
+  html = html.replace(
+    /(?<!="|">)(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener" class="underline text-blue-400 hover:text-blue-300">$1</a>'
+  );
+
+  // Headers: ## ... (only at start of line)
+  html = html.replace(/^### (.+)$/gm, '<strong class="text-xs uppercase tracking-wide text-text-secondary">$1</strong>');
+  html = html.replace(/^## (.+)$/gm, '<strong class="text-sm">$1</strong>');
+  html = html.replace(/^# (.+)$/gm, '<strong class="text-base">$1</strong>');
+
+  // Unordered list items: - ... or * ...
+  html = html.replace(/^[\-\*] (.+)$/gm, '<span class="flex gap-1.5"><span>•</span><span>$1</span></span>');
+
+  // Ordered list items: 1. ...
+  html = html.replace(/^(\d+)\. (.+)$/gm, '<span class="flex gap-1.5"><span>$1.</span><span>$2</span></span>');
+
+  // Line breaks
+  html = html.replace(/\n/g, "<br/>");
+
+  return html;
+}
+
 export function ChatBubble({ message }: { message: Message }) {
   const isUser = message.sender === "user";
   const [speaking, setSpeaking] = useState(false);
+
+  const html = useMemo(() => (isUser ? null : renderMarkdown(message.text)), [isUser, message.text]);
 
   const speak = useCallback(() => {
     if (!ttsSupported) return;
@@ -48,9 +101,16 @@ export function ChatBubble({ message }: { message: Message }) {
             : "bg-bubble-ai rounded-bl-md"
         }`}
       >
-        <p className="text-sm leading-relaxed text-text-primary whitespace-pre-wrap break-words">
-          {message.text}
-        </p>
+        {isUser ? (
+          <p className="text-sm leading-relaxed text-text-primary whitespace-pre-wrap break-words">
+            {message.text}
+          </p>
+        ) : (
+          <div
+            className="text-sm leading-relaxed text-text-primary break-words [&_pre]:whitespace-pre-wrap [&_a]:break-all"
+            dangerouslySetInnerHTML={{ __html: html! }}
+          />
+        )}
         <div className={`flex items-center mt-1 ${isUser ? "justify-end" : "justify-between"}`}>
           <p
             className={`text-[10px] ${

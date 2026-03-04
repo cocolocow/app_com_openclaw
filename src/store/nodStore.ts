@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type Screen = "onboarding" | "chat" | "settings" | "souls";
+export type Screen = "onboarding" | "chat" | "settings" | "souls" | "tools" | "toolChat";
 
 export type ConnectionStatus =
   | "connected"
@@ -14,6 +14,7 @@ export interface OpenClawConfig {
   mDNS: string;
   baseUrl: string;
   boxId?: string;
+  boxUrl?: string;
   reconnectToken?: string;
   ip?: string;
 }
@@ -41,6 +42,12 @@ interface NodState {
   currentScreen: Screen;
   activeSoul: SoulInfo | null;
 
+  // Tool sessions
+  activeToolId: string | null;
+  toolMessages: Record<string, Message[]>;
+  toolTyping: boolean;
+  toolSessionCounter: Record<string, number>;
+
   setConfig: (config: OpenClawConfig) => void;
   clearConfig: () => void;
   addMessage: (message: Omit<Message, "id" | "timestamp">) => void;
@@ -49,6 +56,13 @@ interface NodState {
   setIsTyping: (isTyping: boolean) => void;
   setCurrentScreen: (screen: Screen) => void;
   setActiveSoul: (soul: SoulInfo | null) => void;
+
+  // Tool actions
+  setActiveToolId: (toolId: string | null) => void;
+  addToolMessage: (toolId: string, message: Omit<Message, "id" | "timestamp">) => void;
+  clearToolMessages: (toolId: string) => void;
+  setToolTyping: (typing: boolean) => void;
+  resetToolSession: (toolId: string) => void;
 }
 
 export const useNodStore = create<NodState>()(
@@ -60,6 +74,10 @@ export const useNodStore = create<NodState>()(
       isTyping: false,
       currentScreen: "onboarding",
       activeSoul: null,
+      activeToolId: null,
+      toolMessages: {},
+      toolTyping: false,
+      toolSessionCounter: {},
 
       setConfig: (config) =>
         set({ config, currentScreen: "chat", status: "connected" }),
@@ -92,6 +110,33 @@ export const useNodStore = create<NodState>()(
       setCurrentScreen: (screen) => set({ currentScreen: screen }),
 
       setActiveSoul: (soul) => set({ activeSoul: soul }),
+
+      // Tool actions
+      setActiveToolId: (toolId) => set({ activeToolId: toolId }),
+      addToolMessage: (toolId, message) =>
+        set((state) => ({
+          toolMessages: {
+            ...state.toolMessages,
+            [toolId]: [
+              ...(state.toolMessages[toolId] ?? []),
+              { ...message, id: crypto.randomUUID(), timestamp: Date.now() },
+            ],
+          },
+        })),
+      clearToolMessages: (toolId) =>
+        set((state) => {
+          const copy = { ...state.toolMessages };
+          delete copy[toolId];
+          return { toolMessages: copy };
+        }),
+      setToolTyping: (typing) => set({ toolTyping: typing }),
+      resetToolSession: (toolId) =>
+        set((state) => ({
+          toolSessionCounter: {
+            ...state.toolSessionCounter,
+            [toolId]: (state.toolSessionCounter[toolId] ?? 0) + 1,
+          },
+        })),
     }),
     {
       name: "nodi-storage",
@@ -99,6 +144,7 @@ export const useNodStore = create<NodState>()(
         config: state.config,
         messages: state.messages,
         activeSoul: state.activeSoul,
+        toolMessages: state.toolMessages,
         currentScreen: state.config ? state.currentScreen : "onboarding",
       }),
     },

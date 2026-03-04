@@ -47,6 +47,7 @@ export function Onboarding() {
             baseUrl: boxUrl,
             mDNS: "nodi",
             boxId: res.boxId,
+            boxUrl: res.boxUrl,
             reconnectToken: res.reconnectToken,
           });
           setStep("confirmed");
